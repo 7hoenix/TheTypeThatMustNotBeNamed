@@ -1,100 +1,81 @@
 module Main exposing (..)
 
 import Browser
-
-import Html exposing (Html, Attribute, div, input, text)
-import Html.Attributes exposing (..)
-import Html.Events exposing (onInput)
 import Data
 import Dict exposing (Dict)
+import Element exposing (..)
+import Element.Background as Background
+import Element.Font as Font
+import Element.Input as Input exposing (placeholder)
+import Html.Events exposing (onInput)
+import Html exposing (Html)
 
 
-type Year =
-    Year Int
+type Year
+    = Year Int
 
-type Month =
-    January
-    | February
-    | March
-    | April
-    | May
-    | June
-    | July
-    | August
-    | September
-    | October
-    | November
-    | December
 
 type alias Model =
-    { errors : Maybe String
+    { error : Maybe String
     , rawYear : String
     , mostPopularBabyName : String
-    , monthError : Maybe String
-    , rawMonth : String
     }
 
+
 main =
-  Browser.sandbox { init =
-    { error = Nothing, rawYear = "", mostPopularBabyName = "", monthError = Nothing, rawMonth = "" }
-    , update = update, view = view }
+    Browser.sandbox
+        { init =
+            { error = Nothing, rawYear = "", mostPopularBabyName = "" }
+        , update = update
+        , view = view
+        }
+
 
 type Msg
     = SetRawYear String
-    | SetRawMonth String
 
+
+update : Msg -> Model -> Model
 update msg model =
-  case msg of
-    SetRawYear newYear ->
-      case yearMeetsComplexBusinessNeeds newYear of
-        Ok popularName ->
-            { model | rawYear = newYear, mostPopularBabyName = popularName, error = Nothing }
-        Err err ->
-            { model | rawYear = newYear, mostPopularBabyName = "", error = Just err }
+    case msg of
+        SetRawYear newYear ->
+            case yearMeetsComplexBusinessNeeds newYear of
+                Ok popularName ->
+                    { model | rawYear = newYear, mostPopularBabyName = popularName, error = Nothing }
 
-    SetRawMonth rawMonth ->
-        let
-            error =
-                monthMeetsComplexBusinessNeeds rawMonth
-        in
-        case error of
-            Ok month ->
-                { model | rawMonth = rawMonth, monthError = Nothing }
+                Err err ->
+                    { model | rawYear = newYear, mostPopularBabyName = "", error = Just err }
 
-            Err e ->
-                { model | rawMonth = rawMonth, monthError = Just e }
 
+view : Model -> Html Msg
 view model =
-  div []
-    [ div [] [ text model.mostPopularBabyName]
-    , input [ placeholder "Enter year", value model.rawYear, onInput SetRawYear ] []
-    , div [] [ text (Maybe.withDefault "" model.error)]
-    -- Month stuff
-    -- , input [ placeholder "Enter month", value model.rawMonth, onInput SetRawMonth ] []
-    -- , div [] [ text (Maybe.withDefault "" model.monthError)]
-    ]
-
-
-type alias ValidBirthday =
-    { year : Int
-    , month : Int
-    , day : Int
-    , hour : Int
-    }
-
-validMonthOfYear : Int -> Result String Int
-validMonthOfYear rawMonth =
-    if rawMonth >= 1 && rawMonth <= 12 then
-        Ok rawMonth -- We are going to use the "Ok" constructor (Which is expecting an Int).
-    else
-        Err (String.fromInt rawMonth ++ " is not a valid month!") -- We are going to use the "Err" constructor (Which needs a String).
-
-yearNotTooFarInThePast : Int -> Result String Int
-yearNotTooFarInThePast rawYear =
-    if rawYear >= 0 then
-        Ok rawYear
-    else
-        Err (String.fromInt rawYear ++ " Is before 0 AD!")
+    Element.layout
+        [ Font.color (rgba 0 0 0 1)
+        , Font.italic
+        , Font.size 32
+        , Font.family
+            [ Font.external
+                { url = "https://fonts.googleapis.com/css?family=EB+Garamond"
+                , name = "EB Garamond"
+                }
+            , Font.sansSerif
+            ]
+        ]
+    <|
+        el
+            [ centerX, centerY ]
+            (Element.column
+                []
+                [ Input.text []
+                    { placeholder = Just (Input.placeholder [] (text "1919"))
+                    , text = model.rawYear
+                    , onChange = SetRawYear
+                    , label = Input.labelAbove [ Font.size 14 ] (text "Enter a year!")
+                    }
+                , el [] (Element.text model.mostPopularBabyName)
+                , el [] (text (Maybe.withDefault "" model.error))
+                ]
+            )
 
 yearInTimePeriod : Int -> Result String Int
 yearInTimePeriod rawYear =
@@ -105,10 +86,12 @@ yearInTimePeriod rawYear =
 
 yearNotIn90s : Int -> Result String Int
 yearNotIn90s rawYear =
-    if rawYear < 800 || rawYear > 1300 then
+    if rawYear < 1990 || rawYear > 1999 then
         Ok rawYear
+
     else
         Err (String.fromInt rawYear ++ " is in the 90s.")
+
 
 yearMeetsComplexBusinessNeeds : String -> Result String String
 yearMeetsComplexBusinessNeeds rawYear =
@@ -117,71 +100,14 @@ yearMeetsComplexBusinessNeeds rawYear =
         |> Result.andThen yearInTimePeriod
         |> Result.andThen yearNotIn90s
         |> Result.andThen findMostPopularBabyName
- 
+
+
 popularNames : Dict Int String
 popularNames =
     Dict.fromList Data.popularNames
+
 
 findMostPopularBabyName : Int -> Result String String
 findMostPopularBabyName year =
     Dict.get year popularNames
         |> Result.fromMaybe ("We don't have data for " ++ String.fromInt year ++ "!")
-
-
-monthMeetsComplexBusinessNeeds : String -> Result String Month
-monthMeetsComplexBusinessNeeds rawMonth =
-     toMonth rawMonth
-        |> Result.andThen hasThirtyDays 
-
--- type YearAndMonth =
---     YearAndMonth Year Month
-    
--- validateRequest : String -> String -> Result String YearAndMonth
--- validateRequest rawYear rawMonth =
---     Result.map2 YearAndMonth
---         (yearMeetsComplexBusinessNeeds rawYear)
---         (monthMeetsComplexBusinessNeeds rawMonth)
-
-
--- PRIVATE
-
-hasThirtyDays : Month -> Result String Month
-hasThirtyDays month =
-    case month of
-        September ->
-            Ok month
-        April ->
-            Ok month
-        June ->
-            Ok month
-        November ->
-            Ok month
-        monthDoesntHave30 ->
-            Err <| Debug.toString monthDoesntHave30 ++ " doesn't have 30 days."
-
-toMonth : String -> Result String Month
-toMonth rawMonth =
-     case rawMonth of
-        "jan" -> Ok January
-        "feb" -> Ok February
-        "mar" -> Ok March
-        "apr" -> Ok April
-        "may" -> Ok May
-        "jun" -> Ok June
-        "jul" -> Ok July
-        "aug" -> Ok August
-        "sep" -> Ok September
-        "oct" -> Ok October
-        "nov" -> Ok November
-        "dec" -> Ok December
-        raw -> Err <| raw ++ " is not a valid month!"
-
-
--- validateBirthdayWithHour : Int -> Int -> Int -> Int -> Result String ValidBirthday
--- validateBirthdayWithHour year month day hour =
---     isValidYear year
---       |> Result.andThen (validMonthOfYear month)
---       |> Debug.todo "fail"
---         |> (\year month -> Result.andThen isValidDay day)
---         |> (\year month day -> Result.andThen isValidHour hour)
---         |> ValidBirthday
